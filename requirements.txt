@@ -1,0 +1,4 @@
+Flask==2.2.5
+# Intentionally using a known vulnerable version for SCA demonstrations
+# CVE-2018-18074 affects requests <2.20.0
+requests==2.19.1
