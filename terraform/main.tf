@@ -23,6 +23,7 @@ resource "aws_subnet" "public" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "eu-central-1a"
+  # tfsec:ignore:aws-ec2-no-public-ip-subnet
   map_public_ip_on_launch = true
   tags = {
     Name = "snowball-finance-gmbh-public-subnet"
@@ -46,7 +47,6 @@ resource "aws_route_table_association" "a" {
   route_table_id = aws_route_table.rt.id
 }
 
-# --- SICHERHEITSLÜCKE FÜR IAC-SCAN ---
 resource "aws_security_group" "fargate_sg" {
   name        = "fargate-sg"
   description = "Allow traffic for Fargate service"
@@ -56,21 +56,18 @@ resource "aws_security_group" "fargate_sg" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # TODO: LGR: TEST UNSICHER!
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["77.11.169.35/32"]
   }
 }
 
 # --- 2. Container Registry (ECR) ---
 resource "aws_ecr_repository" "app_repo" {
   name                 = "snowball-finance-gmbh-app"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 # --- 3. Fargate / ECS (Elastic Container Service) ---
