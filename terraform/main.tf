@@ -15,7 +15,7 @@ provider "aws" {
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
   tags = {
-    Name = "blob-gmbh-vpc"
+    Name = "snowball-finance-gmbh-vpc"
   }
 }
 
@@ -25,7 +25,7 @@ resource "aws_subnet" "public" {
   availability_zone = "eu-central-1a"
   map_public_ip_on_launch = true
   tags = {
-    Name = "blob-gmbh-public-subnet"
+    Name = "snowball-finance-gmbh-public-subnet"
   }
 }
 
@@ -46,7 +46,7 @@ resource "aws_route_table_association" "a" {
   route_table_id = aws_route_table.rt.id
 }
 
-# --- SICHERHEITSLÜCKE FÜR DEN IAC-SCAN ---
+# --- SICHERHEITSLÜCKE FÜR IAC-SCAN ---
 resource "aws_security_group" "fargate_sg" {
   name        = "fargate-sg"
   description = "Allow traffic for Fargate service"
@@ -56,7 +56,7 @@ resource "aws_security_group" "fargate_sg" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # TEST: UNSICHER!
+    cidr_blocks = ["0.0.0.0/0"] # TODO: LGR: TEST UNSICHER!
   }
 
   egress {
@@ -69,7 +69,7 @@ resource "aws_security_group" "fargate_sg" {
 
 # --- 2. Container Registry (ECR) ---
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "blob-gmbh-app"
+  name                 = "snowball-finance-gmbh-app"
   image_tag_mutability = "MUTABLE"
 }
 
@@ -98,11 +98,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 }
 
 resource "aws_cloudwatch_log_group" "app_logs" {
-  name = "/ecs/blob-gmbh-app"
+  name = "/ecs/snowball-finance-gmbh-app"
 }
 
 resource "aws_ecs_task_definition" "app_task" {
-  family                   = "blob-gmbh-app-task"
+  family                   = "snowball-finance-gmbh-app-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
@@ -110,7 +110,7 @@ resource "aws_ecs_task_definition" "app_task" {
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([{
-    name      = "blob-gmbh-container"
+    name      = "snowball-finance-gmbh-container"
     image     = var.app_image_url
     essential = true
     portMappings = [{
@@ -129,7 +129,7 @@ resource "aws_ecs_task_definition" "app_task" {
 }
 
 resource "aws_ecs_service" "app_service" {
-  name            = "blob-gmbh-service"
+  name            = "snowball-finance-gmbh-service"
   cluster         = aws_ecs_cluster.main_cluster.id
   task_definition = aws_ecs_task_definition.app_task.arn
   desired_count   = 1

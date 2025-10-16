@@ -1,0 +1,17 @@
+# Lokale Terraform-Konfigurationen und Zustände
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform Plan Cache
+.terraform.tfplan
+
+# Lock-Datei für Provider-Versionen
+.terraform.lock.hcl

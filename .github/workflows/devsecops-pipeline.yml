@@ -1,0 +1,116 @@
+name: DevSecOps CI/CD Workflow for snowball-finance GmbH
+
+on:
+  push:
+    branches: [ "master" ]
+
+  workflow_dispatch: {}
+
+jobs:
+  ###########################################
+  # JOB 1: SECURITY SCANS (SAST, SCA, IaC)
+  ###########################################
+  security-scans:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+      - name: Run Trivy SCA scan on requirements.txt
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: './'
+          format: 'table'
+          trivy-flags: '--exit-code 1 --severity CRITICAL,HIGH'
+          ignore-unfixed: true
+      - name: Run tfsec for IaC scanning
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ./terraform
+
+  ################################
+  # JOB 2: BUILD, PUSH & DEPLOY
+  ################################
+  build-and-deploy:
+    name: Build, Scan & Deploy
+    runs-on: ubuntu-latest
+    needs: security-scans
+    outputs:
+      app_url: ${{ steps.get-app-url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build Docker image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: snowball-finance-gmbh-app
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ steps.build-image.outputs.image }}
+          format: 'table'
+          trivy-flags: '--exit-code 1 --severity CRITICAL,HIGH'
+          ignore-unfixed: true
+      - name: Push image to Amazon ECR
+        run: docker push ${{ steps.build-image.outputs.image }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve -var="app_image_url=${{ steps.build-image.outputs.image }}"
+      - name: Get Fargate Task Public URL
+        id: get-app-url
+        run: |
+          echo "Warte 90 Sekunden, bis der Service gestartet ist..."
+          sleep 90
+          CLUSTER_NAME=$(cd terraform && terraform output -raw ecs_cluster_name)
+          SERVICE_NAME=$(cd terraform && terraform output -raw ecs_service_name)
+          TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME --query 'taskArns[0]' --output text)
+          ENI_ID=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ARN --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+          PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $ENI_ID --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+          echo "Anwendung läuft auf IP: $PUBLIC_IP"
+          echo "url=http://$PUBLIC_IP:8080" >> $GITHUB_OUTPUT
+
+  ###################################
+  # JOB 3: DYNAMIC ANALYSIS (DAST)
+  ###################################
+  dynamic-scan:
+    name: Dynamic Application Scan (DAST)
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          target: ${{ needs.build-and-deploy.outputs.app_url }}
+          fail_action: false
