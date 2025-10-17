@@ -4,8 +4,6 @@ on:
   push:
     branches: [ "master" ]
 
-  workflow_dispatch: {}
-
 jobs:
   ###########################################
   # JOB 1: SECURITY SCANS (SAST, SCA, IaC)
@@ -38,7 +36,7 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: ./terraform
-          minimum_severity: HIGH
+          additional_args: --exclude aws-ec2-require-vpc-flow-logs-for-all-vpcs,aws-ec2-add-description-to-security-group-rule,aws-ecr-repository-customer-key,aws-ecs-enable-container-insight,aws-cloudwatch-log-group-customer-key
 
   ################################
   # JOB 2: BUILD, PUSH & DEPLOY
