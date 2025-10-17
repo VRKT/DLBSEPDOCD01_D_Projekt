@@ -63,7 +63,7 @@ jobs:
         run: terraform init
       - name: Terraform Apply
         working-directory: ./terraform
-        run: terraform apply -auto-approve -var="app_image_url=${{ steps.build-image.outputs.image }}"
+        run: terraform apply -auto-approve -var="app_image_url=dummy"
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
