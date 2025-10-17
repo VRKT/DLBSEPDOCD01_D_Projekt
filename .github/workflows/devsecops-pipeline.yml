@@ -56,6 +56,14 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve -var="app_image_url=${{ steps.build-image.outputs.image }}"
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -77,11 +85,6 @@ jobs:
           ignore-unfixed: true
       - name: Push image to Amazon ECR
         run: docker push ${{ steps.build-image.outputs.image }}
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-      - name: Terraform Init
-        working-directory: ./terraform
-        run: terraform init
       - name: Terraform Apply
         working-directory: ./terraform
         run: terraform apply -auto-approve -var="app_image_url=${{ steps.build-image.outputs.image }}"
