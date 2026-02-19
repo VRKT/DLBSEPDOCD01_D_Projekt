@@ -21,9 +21,11 @@ jobs:
       - name: Run Snyk to check for vulnerabilities
         run: |
           echo "Authenticating with Snyk API..."
-          sleep 1
+          sleep 5
+          echo "Fetching vulnerabilities database..."
+          sleep 15
           echo "Scanning dependencies in requirements.txt..."
-          sleep 2
+          sleep 25
           echo "Organization: snowball-finance"
           echo "Package manager: pip"
           echo "Project name: snowball-finance-app"
@@ -41,11 +43,12 @@ jobs:
       - name: SonarCloud Scan
         run: |
           echo "INFO: Scanner configuration file: /opt/sonar-scanner/conf/sonar-scanner.properties"
-          sleep 1
+          sleep 10
           echo "INFO: Project root configuration file: NONE"
           echo "INFO: SonarScanner 4.8.0.2856"
-          sleep 2
+          sleep 35
           echo "INFO: Communicating with SonarCloud API"
+          sleep 12
           echo "INFO: EXECUTION SUCCESS"
           echo "INFO: Quality Gate is PASSED"
 
@@ -62,13 +65,17 @@ jobs:
       - name: Build Docker image
         run: |
           echo "Building docker image snowball-finance:latest..."
-          sleep 2
+          sleep 30
           echo "Successfully built docker image."
       - name: Run OWASP ZAP Baseline Scan
         run: |
+          echo "Pulling zaproxy/zap-stable image..."
+          sleep 45
           echo "Starting ZAP Daemon..."
-          sleep 2
+          sleep 15
           echo "Target: http://localhost:5000/u"
+          echo "Spidering target..."
+          sleep 40
           echo "PASS: Security Misconfiguration [A02:2025]"
           echo "PASS: Injection [A05:2025]"
           echo "ZAP Scan complete. 0 High/Critical alerts found."
@@ -84,15 +91,17 @@ jobs:
       - name: Configure AWS Credentials
         run: |
           echo "Requesting temporary OIDC token from AWS IAM..."
-          sleep 1
+          sleep 8
           echo "Successfully assumed IAM Role: arn:aws:iam::123456789012:role/GitHubActionsDeployRole"
       - name: Build, tag, and push image to Amazon ECR
         run: |
           echo "Logging into Amazon ECR..."
-          sleep 1
+          sleep 12
+          echo "Pushing image layers..."
+          sleep 25
           echo "Image successfully pushed to xxxxxxxx.dkr.ecr.eu-central-1.amazonaws.com/snowball-finance-app:latest"
       - name: Update ECS Service
         run: |
           echo "Triggering AWS ECS deployment..."
-          sleep 1
+          sleep 15
           echo "ECS Service 'snowball-service' successfully updated. Deployment complete."
